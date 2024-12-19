@@ -1,0 +1,37 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+pubspec.lock
+
+# Exclude all build directories except for build/web
+build/*
+!build/web/
+
+# Exclude the app-debug.apk file
+build/app/outputs/flutter-apk/app-debug.apk
+
+# Exclude platform-specific directories
+android/
+windows/
+macos/
+ios/
+
+# Exclude IDE configuration files
+.vscode/
+.idea/
+*.iml
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Firebase
+firebase.json
+
+# Operating system files
+Desktop.ini
+
+# Exclude the web folder as well
+web/
