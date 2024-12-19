@@ -5,9 +5,6 @@
 .packages
 pubspec.lock
 
-# Exclude all build directories except for build/web
-build/*
-!build/web/
 
 # Exclude the app-debug.apk file
 build/app/outputs/flutter-apk/app-debug.apk
