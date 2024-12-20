@@ -119,6 +119,29 @@ class MarblePageState extends State<MarblePage>
     super.dispose();
   }
 
+  void addToacceptedMarbles(String address) async {
+    try {
+      String currentUserId = FirebaseAuth.instance.currentUser!.uid;
+      await FirebaseFirestore.instance
+          .collection('AvailableChats')
+          .doc(currentUserId)
+          .set({
+        'acceptedMarbles': FieldValue.arrayUnion([address]),
+      }, SetOptions(merge: true));
+      await FirebaseFirestore.instance
+          .collection('AvailableChats')
+          .doc('Assistant')
+          .update({
+        'marbles': FieldValue.arrayRemove([address]),
+      });
+      // Use merge to avoid overwriting the entire document
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to accept chat : $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -134,6 +157,10 @@ class MarblePageState extends State<MarblePage>
             top: marble.yPos - marble.radius,
             child: GestureDetector(
               onTap: () {
+                addToacceptedMarbles(
+                    marble.userid + "." + marble.chatid + "." + marble.title);
+
+                //addToacceptedMarbles(marble.userid+marble.chatid+marble.title);
                 Navigator.push(
                     context,
                     MaterialPageRoute(

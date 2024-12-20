@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:study_mate_web/Views/mainFuncView/getInvolvedB.dart';
-import 'package:study_mate_web/Views/mainFuncView/getInvolvedA.dart';
 import 'package:study_mate_web/Views/socialView/post_screen.dart';
 import 'package:study_mate_web/Views/socialView/profile_screen.dart';
 

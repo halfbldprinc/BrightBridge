@@ -1,13 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../../components/dialog.dart';
+import 'package:intl/intl.dart';
+import '../../components/dialog.dart'; // Adjust the path as needed
 import 'Cache.dart'; // Ensure this path is correct
 
 class CommentPage extends StatefulWidget {
   final String postId;
+  final bool isDarkMode; // Changed to boolean
 
-  const CommentPage({super.key, required this.postId});
+  const CommentPage(
+      {super.key, required this.postId, required this.isDarkMode});
 
   @override
   CommentPageState createState() => CommentPageState();
@@ -24,6 +27,9 @@ class CommentPageState extends State<CommentPage> {
   int likeCount = 0;
   bool isLiked = false;
   bool likeButtonEnable = true;
+
+  // Pagination tracking
+  DocumentSnapshot? lastFetchedComment;
 
   @override
   void initState() {
@@ -69,14 +75,40 @@ class CommentPageState extends State<CommentPage> {
         });
       }
 
-      final commentSnapshot = await FirebaseFirestore.instance
-          .collection('posts')
-          .doc(widget.postId)
-          .collection('comments')
-          .orderBy('timestamp', descending: true) // Order comments by timestamp
-          .get();
+      // Fetch comments from Firestore, with pagination
+      QuerySnapshot commentSnapshot;
 
-      comments = commentSnapshot.docs.map((doc) => doc.data()).toList();
+      if (lastFetchedComment == null) {
+        commentSnapshot = await FirebaseFirestore.instance
+            .collection('posts')
+            .doc(widget.postId)
+            .collection('comments')
+            .orderBy('timestamp', descending: true)
+            .limit(10)
+            .get();
+      } else {
+        commentSnapshot = await FirebaseFirestore.instance
+            .collection('posts')
+            .doc(widget.postId)
+            .collection('comments')
+            .orderBy('timestamp', descending: true)
+            .startAfterDocument(lastFetchedComment!)
+            .limit(10)
+            .get();
+      }
+
+      // Add new comments to the top of the list
+      List<Map<String, dynamic>> newComments = commentSnapshot.docs
+          .map((doc) => doc.data() as Map<String, dynamic>)
+          .toList();
+
+      setState(() {
+        comments.insertAll(0, newComments); // Insert new comments at the top
+      });
+
+      if (commentSnapshot.docs.isNotEmpty) {
+        lastFetchedComment = commentSnapshot.docs.last;
+      }
     } catch (e) {
       if (mounted) {
         PopUp(message: "Error fetching comments: $e");
@@ -114,7 +146,7 @@ class CommentPageState extends State<CommentPage> {
         'userName': currentUser!['Name'], // Get current user's name from cache
       };
 
-      // Immediately add the new comment to the local list
+      // Immediately add the new comment at the top
       setState(() {
         comments.insert(0, newComment); // Insert new comment at the top
         commentController.clear(); // Clear the text field
@@ -172,7 +204,7 @@ class CommentPageState extends State<CommentPage> {
         });
       }
     } catch (e) {
-      PopUp(message: "Error happend ${e.toString()}");
+      PopUp(message: "Error happened ${e.toString()}");
     } finally {
       setState(() {
         likeButtonEnable = true;
@@ -182,10 +214,13 @@ class CommentPageState extends State<CommentPage> {
 
   @override
   Widget build(BuildContext context) {
+    final currentTheme =
+        widget.isDarkMode ? ThemeData.dark() : ThemeData.light();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Comments"),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
       body: Column(
         children: [
@@ -195,24 +230,32 @@ class CommentPageState extends State<CommentPage> {
             width: double.infinity,
             padding: const EdgeInsets.all(2),
             child: Card(
+              color: currentTheme.cardColor, // Background color for post card
               elevation: 10,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Post user name
                     Text(
                       postSnapshot?['userName'] ?? 'Unknown User',
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: currentTheme.textTheme.bodyLarge?.color),
                     ),
                     const SizedBox(height: 6),
+                    // Post content
                     Text(
                       postSnapshot?['content'] ?? 'No content',
-                      style: const TextStyle(fontSize: 16),
+                      style: TextStyle(
+                          fontSize: 16,
+                          color: currentTheme.textTheme.bodyMedium?.color),
                     ),
                     const SizedBox(height: 6),
                     const Spacer(),
+                    // Like button
                     GestureDetector(
                       onTap: likePost,
                       child: Row(
@@ -221,10 +264,23 @@ class CommentPageState extends State<CommentPage> {
                               ? Icons.thumb_up
                               : Icons.thumb_up_off_alt),
                           const SizedBox(width: 5),
+
+                          // Like Count Text
                           Text(
-                            '$likeCount : ${postSnapshot?['timestamp'] != null ? postSnapshot!['timestamp'].toDate() : 'Unknown date'}',
-                            style: const TextStyle(
-                                fontSize: 14, color: Colors.grey),
+                            '$likeCount  ',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: currentTheme.textTheme.bodyMedium?.color,
+                            ),
+                          ),
+                          // Timestamp Text
+                          Spacer(),
+                          Text(
+                            ' ${postSnapshot?['timestamp'] != null ? DateFormat('h:mm a, d MMM').format((postSnapshot!['timestamp'] as Timestamp).toDate()) : 'Unknown date'}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: currentTheme.textTheme.bodyMedium?.color,
+                            ),
                           ),
                         ],
                       ),
@@ -234,32 +290,43 @@ class CommentPageState extends State<CommentPage> {
               ),
             ),
           ),
-          const Text("hello"),
           // Comments List
           Expanded(
-            child: isLoading
-                ? const Center(
-                    child: CircularProgressIndicator()) // Loading indicator
-                : ListView.builder(
-                    itemCount: comments.length,
-                    itemBuilder: (context, index) {
-                      final commentData = comments[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                            vertical: 8, horizontal: 45),
-                        child: ListTile(
-                          title: Text(
-                            commentData['text'],
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          subtitle: Text(
-                            commentData['userName'] ?? 'Anonymous',
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                        ),
-                      );
-                    },
+            child: ListView.builder(
+              itemCount: comments.length +
+                  1, // Add 1 to show a loading indicator at the bottom
+              itemBuilder: (context, index) {
+                if (index == comments.length) {
+                  // Show a loading spinner at the bottom when more comments are loading
+                  if (!isLoading) {
+                    fetchComments(); // Only fetch more if not loading
+                  }
+                  return Center(
+                    child: isLoading
+                        ? CircularProgressIndicator()
+                        : Container(), // Show only when loading
+                  );
+                }
+                final commentData = comments[index];
+                return Card(
+                  margin: EdgeInsets.symmetric(vertical: 8, horizontal: 45),
+                  color: currentTheme.cardColor,
+                  child: ListTile(
+                    title: Text(
+                      commentData['text'],
+                      style: TextStyle(
+                          fontSize: 16,
+                          color: currentTheme.textTheme.bodyLarge?.color),
+                    ),
+                    subtitle: Text(
+                      commentData['userName'] ?? 'Anonymous',
+                      style: TextStyle(
+                          color: currentTheme.textTheme.bodyMedium?.color),
+                    ),
                   ),
+                );
+              },
+            ),
           ),
           // Comment Input
           Padding(
@@ -269,24 +336,22 @@ class CommentPageState extends State<CommentPage> {
                 Expanded(
                   child: TextField(
                     controller: commentController,
-                    enabled: isCommentingEnabled && comments.length < 50,
+                    enabled: isCommentingEnabled,
                     decoration: InputDecoration(
-                      hintText: comments.length < 50
-                          ? 'Add a comment...'
-                          : 'Comments limit reached',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.grey),
+                      labelText: 'Write a comment...',
+                      labelStyle: TextStyle(
+                        color: currentTheme.textTheme.bodyMedium?.color,
                       ),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ),
                 IconButton(
-                    icon: const Icon(Icons.send, color: Colors.blueAccent),
-                    onPressed: addComment // Disable if commenting
-                    ),
+                  icon: Icon(Icons.send),
+                  onPressed: addComment,
+                ),
               ],
             ),
           ),

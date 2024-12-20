@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'comments_screen.dart';
 
 class PostWidget extends StatefulWidget {
@@ -114,7 +115,7 @@ class PostWidgetState extends State<PostWidget> {
 
             // Timestamp
             Text(
-              'Posted on: ${postSnapshot?['timestamp'] != null ? (postSnapshot!['timestamp'] as Timestamp).toDate().toLocal().toString() : 'Unknown date'}',
+              'Posted on: ${postSnapshot?['timestamp'] != null ? DateFormat('h:mm a, d MMM').format((postSnapshot!['timestamp'] as Timestamp).toDate()) : 'Unknown date'}',
               style: TextStyle(
                 fontSize: 12,
                 color: widget.isDarkMode ? Colors.grey : Colors.black54,
@@ -153,10 +154,12 @@ class PostWidgetState extends State<PostWidget> {
                 // Comment Button
                 GestureDetector(
                   onTap: () {
-                    Navigator.of(context).pushReplacement(
+                    Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) =>
-                            CommentPage(postId: widget.postId),
+                        builder: (context) => CommentPage(
+                          postId: widget.postId,
+                          isDarkMode: widget.isDarkMode,
+                        ),
                       ),
                     );
                   },
