@@ -7,9 +7,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:study_mate_web/Views/mainFuncView/chatlistscreen.dart';
 import 'package:study_mate_web/Views/socialView/create_post_screen.dart';
-import 'package:study_mate_web/Views/socialView/feed.dart';
+import 'package:study_mate_web/Views/socialView/newsfeed_screen.dart';
 import 'package:study_mate_web/Views/mainFuncView/getInvolvedA.dart';
-import 'package:study_mate_web/Views/socialView/post_screen.dart';
+import 'package:study_mate_web/Views/socialView/post_card.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ProfilePageTemp extends StatefulWidget {
@@ -714,14 +714,8 @@ class ProfilePageTempState extends State<ProfilePageTemp> {
                 isDarkMode: isDarkMode,
               ),
               isDarkMode),
-          _buildDrawerTile(
-              Icons.star,
-              'Get Involved',
-              MarblePage(isDarkMode: isDarkMode),
-              // RequestChat(
-              //   isDarkMode: isDarkMode,
-              // ),
-              isDarkMode),
+          _buildDrawerTile(Icons.star, 'Get Involved',
+              MarblePage(isDarkMode: isDarkMode), isDarkMode),
           _buildDrawerTile(
               Icons.message,
               'Chats',

@@ -6,7 +6,7 @@ import 'package:study_mate_web/Views/initialView/login_screen.dart';
 import 'package:study_mate_web/components/dialog.dart';
 import 'package:http/http.dart' as http;
 
-import '../socialView/feed.dart';
+import '../socialView/newsfeed_screen.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({

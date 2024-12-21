@@ -2,7 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:study_mate_web/components/dialog.dart';
 import 'package:study_mate_web/Views/initialView/register_screen.dart';
-import '../socialView/feed.dart';
+import '../socialView/newsfeed_screen.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});

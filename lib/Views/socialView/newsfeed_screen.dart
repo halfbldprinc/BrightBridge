@@ -1,9 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:study_mate_web/Views/mainFuncView/getInvolvedB.dart';
-import 'package:study_mate_web/Views/socialView/post_screen.dart';
-import 'package:study_mate_web/Views/socialView/profile_screen.dart';
+import 'package:study_mate_web/Views/mainFuncView/chatlistscreen.dart';
+import 'package:study_mate_web/Views/mainFuncView/getInvolvedA.dart';
+import 'package:study_mate_web/Views/socialView/post_card.dart';
+import 'package:study_mate_web/main.dart';
 
 class NewsFeed extends StatefulWidget {
   final bool isDarkMode;
@@ -100,23 +101,19 @@ class _NewsFeedState extends State<NewsFeed> {
           _buildDrawerTile(
               Icons.home,
               'Profile',
-              ProfilePageTemp(
+              MyApp(
                 isDarkMode: isDarkMode,
-                userID: currentUser!.uid,
-                toggleDarkMode: () {
-                  isDarkMode = !isDarkMode;
-                },
               ),
               isDarkMode),
           _buildDrawerTile(
               Icons.star,
               'Get Involved',
-              RequestChat(
+              MarblePage(
                 isDarkMode: isDarkMode,
               ),
               isDarkMode),
           _buildDrawerTile(Icons.message, 'Chats',
-              Text("Return avainle chats without button "), isDarkMode),
+              ChatListPage(isDarkMode: isDarkMode), isDarkMode),
           ListTile(
             leading: Icon(Icons.logout,
                 color: isDarkMode ? Colors.white : Colors.black),

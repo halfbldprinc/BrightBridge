@@ -3,10 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:flutter/scheduler.dart';
+import 'package:study_mate_web/Views/mainFuncView/chatlistscreen.dart';
 import 'package:study_mate_web/Views/mainFuncView/chatscreen.dart';
-import 'package:study_mate_web/Views/mainFuncView/getInvolvedB.dart';
-import 'package:study_mate_web/Views/socialView/feed.dart';
-import 'package:study_mate_web/Views/socialView/profile_screen.dart'; // For animation ticker
+import 'package:study_mate_web/Views/socialView/newsfeed_screen.dart';
+import 'package:study_mate_web/main.dart'; // For animation ticker
 
 class MarblePage extends StatefulWidget {
   final bool isDarkMode;
@@ -220,20 +220,16 @@ class MarblePageState extends State<MarblePage>
           _buildDrawerTile(
               Icons.home,
               'Profile',
-              ProfilePageTemp(
+              MyApp(
                 isDarkMode: isDarkMode,
-                userID: FirebaseAuth.instance.currentUser!.uid,
-                toggleDarkMode: () {
-                  isDarkMode = !isDarkMode;
-                },
               ),
               isDarkMode),
           _buildDrawerTile(Icons.feed, 'New Feed',
               NewsFeed(isDarkMode: isDarkMode), isDarkMode),
           _buildDrawerTile(
               Icons.star,
-              'Get Involved',
-              RequestChat(
+              'Chats',
+              ChatListPage(
                 isDarkMode: isDarkMode,
               ),
               isDarkMode),

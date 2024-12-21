@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:study_mate_web/Views/socialView/feed.dart';
+import 'package:study_mate_web/Views/socialView/newsfeed_screen.dart';
 import 'Cache.dart';
 
 class CreatePostPage extends StatefulWidget {
