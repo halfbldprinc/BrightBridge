@@ -197,27 +197,39 @@ class ProfilePageTempState extends State<ProfilePageTemp> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        //profile image
-        final ref = FirebaseStorage.instance.ref(userData['profilePicture']);
-        final fetchedProfileUrl = await ref.getDownloadURL();
-        //other images here
+        // Profile image
+        String? fetchedProfileUrl;
+        try {
+          final ref = FirebaseStorage.instance.ref(userData['profilePicture']);
+          fetchedProfileUrl = await ref.getDownloadURL();
+        } catch (e) {
+          print('Error fetching profile image: $e');
+          fetchedProfileUrl = null; // Set to null if an error occurs
+        }
+
+        // Other images
         List<String> urls = [];
         for (var fileName in privateImageNames) {
           String path = widget.userID + '/' + fileName;
-          final storageRef = FirebaseStorage.instance.ref().child(path);
-          final url = await storageRef
-              .getDownloadURL(); // Fetch the download URL for each file
-          urls.add(url); // Add the URL to the list
+          try {
+            final storageRef = FirebaseStorage.instance.ref().child(path);
+            final url = await storageRef.getDownloadURL();
+            urls.add(url); // Add the URL to the list if successful
+          } catch (e) {
+            print('Error fetching private image $fileName: $e');
+            // You can choose to add a placeholder or handle the error differently
+          }
         }
 
         // Update the UI with the list of URLs
         setState(() {
-          profilePicture = fetchedProfileUrl;
+          profilePicture =
+              fetchedProfileUrl!; // Could be null if the profile image fails
           privateImageUrl = urls;
         });
       }
     } catch (e) {
-      // Catch specific errors if needed, otherwise show the generic error message
+      // Catch any unforeseen errors
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error fetching private images: $e'),
@@ -488,6 +500,7 @@ class ProfilePageTempState extends State<ProfilePageTemp> {
                             ),
                       IconButton(
                         icon: Icon(
+                          size: 16,
                           editAboutMe ? Icons.check : Icons.edit,
                           color:
                               widget.isDarkMode ? Colors.white : Colors.black87,
@@ -530,6 +543,7 @@ class ProfilePageTempState extends State<ProfilePageTemp> {
                           ? IconButton(
                               onPressed: uploadImage,
                               icon: Icon(
+                                size: 16,
                                 Icons.add_a_photo,
                                 color: widget.isDarkMode
                                     ? Colors.white
@@ -539,6 +553,7 @@ class ProfilePageTempState extends State<ProfilePageTemp> {
                       Spacer(),
                       IconButton(
                         icon: Icon(
+                          size: 16,
                           editPics ? Icons.check : Icons.edit,
                           color:
                               widget.isDarkMode ? Colors.white : Colors.black87,
@@ -593,7 +608,9 @@ class ProfilePageTempState extends State<ProfilePageTemp> {
                                     right: 5,
                                     child: editPics
                                         ? IconButton(
-                                            icon: Icon(Icons.delete,
+                                            icon: Icon(
+                                                size: 16,
+                                                Icons.delete,
                                                 color: Colors.red),
                                             onPressed: () => deleteImage(
                                                 privateImageNames[index]),

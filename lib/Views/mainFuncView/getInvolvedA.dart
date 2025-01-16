@@ -22,11 +22,12 @@ class MarblePageState extends State<MarblePage>
   late double screenWidth;
   late double screenHeight;
   late Ticker _ticker;
+  late String currentUserId;
 
   @override
   void initState() {
     super.initState();
-
+    currentUserId = FirebaseAuth.instance.currentUser!.uid;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
         screenWidth = MediaQuery.of(context).size.width;
@@ -57,7 +58,7 @@ class MarblePageState extends State<MarblePage>
           marbles.clear();
           for (var id in marbleIds) {
             List<String> values = id.split(".");
-            if (values.length < 2) {
+            if (values.length < 2 || values[0] == currentUserId) {
               continue;
             }
 
@@ -121,7 +122,6 @@ class MarblePageState extends State<MarblePage>
 
   void addToacceptedMarbles(String address) async {
     try {
-      String currentUserId = FirebaseAuth.instance.currentUser!.uid;
       await FirebaseFirestore.instance
           .collection('AvailableChats')
           .doc(currentUserId)

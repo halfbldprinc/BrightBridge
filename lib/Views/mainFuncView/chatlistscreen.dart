@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:study_mate_web/Views/components/timeGetter.dart';
 import 'package:study_mate_web/Views/mainFuncView/chatscreen.dart';
 import 'package:study_mate_web/Views/mainFuncView/getInvolvedA.dart';
 import 'package:study_mate_web/Views/socialView/newsfeed_screen.dart';
@@ -134,8 +135,8 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-// Submit chat request using WriteBatch for optimized writes
   Future<void> submitRequest() async {
+    // Ensure that the user has entered all required fields
     if (titleController.text.trim().isEmpty ||
         descriptionController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -145,23 +146,23 @@ class _ChatListPageState extends State<ChatListPage> {
     }
 
     try {
+      // Fetch the current user
       final currentUser = _auth.currentUser;
 
-      if (currentUser == null) {
+      if (currentUser == null || currentUser.uid == null) {
         throw Exception("No user logged in");
       }
 
+      // Generate a unique chat ID based on the current date
       String chatID =
           "${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}";
+
+      // Reference to the user's chats collection
       final userDocRef =
           _firestore.collection('AvailableChats').doc(currentUser.uid);
       final chatRef = userDocRef.collection('chats').doc(chatID);
 
-      final userDocSnapshot = await userDocRef.get();
-      if (!userDocSnapshot.exists) {
-        await userDocRef.set({'createdAt': DateTime.now()});
-      }
-
+      // Check if the chat already exists for today
       final chatSnapshot = await chatRef.get();
       if (chatSnapshot.exists) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -171,27 +172,33 @@ class _ChatListPageState extends State<ChatListPage> {
         return;
       }
 
-      // Using WriteBatch to group the write operations
-      WriteBatch batch = _firestore.batch();
-
+      // Prepare the new chat data
       final newChat = {
-        'title': titleController.text,
-        'description': descriptionController.text,
+        'title': titleController.text.trim(),
+        'description': descriptionController.text.trim(),
         'department': selectedDepartment,
         'userId': currentUser.uid,
         'timestamp': FieldValue.serverTimestamp(),
+        'hasNewMessage': {
+          currentUser.uid: false
+        }, // Initialize the hasNewMessage field
       };
 
+      // Create a WriteBatch to perform multiple Firestore operations in one transaction
+      WriteBatch batch = _firestore.batch();
+
+      // Add the new chat to the user's collection
       batch.set(chatRef, newChat);
 
-      // Add chat to "Assistant" collection for tracking
+      // Add the chat to the "Assistant" collection for tracking
       final assistantDocRef =
           _firestore.collection('AvailableChats').doc('Assistant');
       batch.set(
         assistantDocRef,
         {
-          'marbles': FieldValue.arrayUnion(
-              ["${currentUser.uid}.$chatID.${titleController.text}"]),
+          'marbles': FieldValue.arrayUnion([
+            "${currentUser.uid}.$chatID.${titleController.text.trim()}"
+          ]), // Track the marble (chat) with user ID and chat ID
         },
         SetOptions(merge: true),
       );
@@ -201,14 +208,19 @@ class _ChatListPageState extends State<ChatListPage> {
 
       // Update the local state for UI
       setState(() {
-        chats.insert(0, {'id': chatID, ...newChat});
+        chats.insert(0,
+            {'id': chatID, ...newChat}); // Add the new chat to the local list
       });
 
-      Navigator.pop(context); // Close the modal
+      // Close the dialog and show a success message
+      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Chat request submitted successfully!")),
       );
     } catch (e) {
+      // Log the error and show it to the user
+      print(
+          'Error submitting request: $e'); // Log the error for debugging purposes
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: ${e.toString()}')),
       );
@@ -226,10 +238,8 @@ class _ChatListPageState extends State<ChatListPage> {
         throw Exception("No user logged in");
       }
 
-      // Prepare list for accepted chats
       List<Map<String, dynamic>> tempAcceptedChats = [];
 
-      // Fetch accepted chats by checking 'acceptedMarbles'
       final tempShot = await _firestore
           .collection('AvailableChats')
           .doc(currentUser.uid)
@@ -238,20 +248,18 @@ class _ChatListPageState extends State<ChatListPage> {
       if (tempShot.exists &&
           tempShot.data() != null &&
           tempShot.data()!['acceptedMarbles'] != null) {
-        // Since 'acceptedMarbles' is a List of Strings, we can iterate over it
         List<String> acceptedMarblesList =
             List<String>.from(tempShot.data()!['acceptedMarbles']);
 
         for (var item in acceptedMarblesList) {
-          // Split the string by '.'
           values = item.split(".");
 
           if (values.length >= 3) {
             var chatData = await _firestore
                 .collection('AvailableChats')
-                .doc(values[0]) // userId
+                .doc(values[0])
                 .collection('chats')
-                .doc(values[1]) // chatId
+                .doc(values[1])
                 .get();
 
             if (chatData.exists) {
@@ -259,7 +267,7 @@ class _ChatListPageState extends State<ChatListPage> {
                 'userID': values[0],
                 'chatID': values[1],
                 'id': chatData.id,
-                'title': values[2], // Use the title from the address
+                'title': values[2],
                 ...chatData.data()!,
               });
             }
@@ -267,7 +275,6 @@ class _ChatListPageState extends State<ChatListPage> {
         }
       }
 
-      // Fetch the chats belonging to the current user
       final chatQuery = await _firestore
           .collection('AvailableChats')
           .doc(currentUser.uid)
@@ -282,17 +289,18 @@ class _ChatListPageState extends State<ChatListPage> {
             'userID': currentUser.uid,
             'id': doc.id,
             'title': data['title'] ?? 'Unknown Title',
+            'hasNewMessage': data['hasNewMessage'] ?? {},
             ...data,
           };
         }).toList();
 
-        // Add accepted chats to the main chat list
         acceptedChat.addAll(tempAcceptedChats.map((chat) {
           return {
             'userID': chat['userID'],
             'chatID': chat['chatID'],
             'id': chat['id'],
             'title': chat['title'],
+            'hasNewMessage': chat['hasNewMessage'],
             ...chat,
           };
         }).toList());
@@ -330,9 +338,10 @@ class _ChatListPageState extends State<ChatListPage> {
                       itemCount: chats.length,
                       itemBuilder: (context, index) {
                         final chatData = chats[index];
-                        final hasNewMessage =
-                            chatData['hasNewMessage'] != null &&
-                                _hasAnyNewMessage(chatData['hasNewMessage']);
+                        final hasNewMessage = chatData['hasNewMessage'][
+                                _auth.currentUser?.displayName ??
+                                    _auth.currentUser?.uid] ==
+                            true;
 
                         return Card(
                           margin: const EdgeInsets.symmetric(
@@ -398,9 +407,10 @@ class _ChatListPageState extends State<ChatListPage> {
                       itemCount: acceptedChat.length,
                       itemBuilder: (context, index) {
                         final chatData = acceptedChat[index];
-                        final hasNewMessage =
-                            chatData['hasNewMessage'] != null &&
-                                _hasAnyNewMessage(chatData['hasNewMessage']);
+                        final hasNewMessage = chatData['hasNewMessage'][
+                                _auth.currentUser?.displayName ??
+                                    _auth.currentUser?.uid] ==
+                            true;
 
                         return Card(
                           margin: const EdgeInsets.symmetric(
@@ -461,16 +471,6 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  // Helper function to check if any user has a new message
-  bool _hasAnyNewMessage(Map<String, dynamic> hasNewMessage) {
-    // Filter out the key specified in exceptThis
-    var filteredMap = Map<String, dynamic>.from(hasNewMessage);
-    filteredMap.remove(_auth.currentUser!.uid);
-
-    // Check if any of the remaining values are true
-    return filteredMap.values.any((value) => value == true);
-  }
-
   Widget _buildDrawer(bool isDarkMode) {
     return Drawer(
       backgroundColor: isDarkMode ? Colors.black : Colors.white,
@@ -522,7 +522,7 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   ListTile _buildDrawerTile(
-      IconData icon, String title, Widget page, bool isDarkMode) {
+      IconData icon, String title, Widget destination, bool isDarkMode) {
     return ListTile(
       leading: Icon(icon, color: isDarkMode ? Colors.white : Colors.black),
       title: Text(
@@ -530,8 +530,10 @@ class _ChatListPageState extends State<ChatListPage> {
         style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
       ),
       onTap: () {
-        Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (context) => page));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => destination),
+        );
       },
     );
   }

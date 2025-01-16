@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:study_mate_web/Views/components/timeGetter.dart';
 import 'package:study_mate_web/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:study_mate_web/Views/initialView/login_screen.dart';
@@ -13,6 +14,7 @@ void main() async {
   } catch (error) {
     //
   }
+  await AppTime.fetchCurrentTime();
 
   runApp(MyApp(
     isDarkMode: false,

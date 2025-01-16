@@ -25,6 +25,8 @@ class ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<bool> _isSendButtonEnabled =
+      ValueNotifier(false); // Notifier for button state
 
   List<DocumentSnapshot> _messages = [];
   bool _isLoadingMore = false;
@@ -34,12 +36,17 @@ class ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_updateSendButtonState);
     _loadMessages();
-    _markMessagesAsRead();
+  }
+
+  void _updateSendButtonState() {
+    _isSendButtonEnabled.value = _controller.text.trim().isNotEmpty;
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_updateSendButtonState);
     _scrollController.dispose();
     _controller.dispose();
     super.dispose();
@@ -51,146 +58,114 @@ class ChatScreenState extends State<ChatScreen> {
 
     setState(() => _isLoadingMore = true);
 
-    Query query = _firestore
-        .collection('AvailableChats')
-        .doc(widget.userID)
-        .collection('chats')
-        .doc(widget.chatID)
-        .collection('messages')
-        .orderBy('createdAt', descending: true)
-        .limit(_pageSize);
+    try {
+      Query query = _firestore
+          .collection('AvailableChats')
+          .doc(widget.userID)
+          .collection('chats')
+          .doc(widget.chatID)
+          .collection('messages')
+          .orderBy('createdAt', descending: true)
+          .limit(_pageSize);
 
-    if (_lastDocument != null) {
-      query = query.startAfterDocument(_lastDocument!);
-    }
+      if (_lastDocument != null) {
+        query = query.startAfterDocument(_lastDocument!);
+      }
 
-    final querySnapshot = await query.get();
-    if (querySnapshot.docs.isNotEmpty) {
-      setState(() {
-        _lastDocument = querySnapshot.docs.last;
-        _messages.addAll(querySnapshot.docs.reversed);
-      });
+      final querySnapshot = await query.get();
+      if (querySnapshot.docs.isNotEmpty) {
+        setState(() {
+          _lastDocument = querySnapshot.docs.last;
+          _messages.addAll(querySnapshot.docs.reversed);
+        });
+      }
+      _markMessagesAsRead();
+    } catch (e) {
+      debugPrint('Error loading messages: $e');
     }
 
     setState(() => _isLoadingMore = false);
   }
 
-  // Send a message
   Future<void> _sendMessage() async {
     if (_controller.text.isEmpty) return;
 
-    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
-    final userSnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(widget.userID)
-        .get();
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+      final userSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.userID)
+          .get();
 
-    final currentUserName = userSnapshot.data()!['Name'];
+      final currentUserName = userSnapshot.data()?['Name'] ?? 'Unknown';
 
-    // Add message to Firestore
-    await _firestore
-        .collection('AvailableChats')
-        .doc(widget.userID)
-        .collection('chats')
-        .doc(widget.chatID)
-        .collection('messages')
-        .add({
-      'name': currentUserName,
-      'text': _controller.text,
-      'createdAt': Timestamp.now(),
-      'userId': currentUserId,
-      'status': 'sent', // Mark the message as sent
-    });
-    _controller.clear();
-    // Update 'hasNewMessage' for other users in the chat
-    final chatDocRef = _firestore
-        .collection('AvailableChats')
-        .doc(widget.userID)
-        .collection('chats')
-        .doc(widget.chatID);
+      await _firestore
+          .collection('AvailableChats')
+          .doc(widget.userID)
+          .collection('chats')
+          .doc(widget.chatID)
+          .collection('messages')
+          .add({
+        'name': currentUserName,
+        'text': _controller.text,
+        'createdAt': Timestamp.now(),
+        'userId': currentUserId,
+        'status': 'sent',
+      });
 
-    final docSnapshot = await chatDocRef.get();
+      _controller.clear();
 
-    if (docSnapshot.exists) {
-      final data = docSnapshot.data();
-      if (data != null && data.containsKey('hasNewMessage')) {
-        Map<String, dynamic> hasNewMessage =
-            Map<String, dynamic>.from(data['hasNewMessage'] ?? {});
-        hasNewMessage[widget.userID] = false;
-        // Set 'hasNewMessage' flag for other users to true
-        hasNewMessage.forEach((key, value) {
-          if (key != currentUserId) {
-            hasNewMessage[key] = true;
-          }
-        });
+      final chatDocRef = _firestore
+          .collection('AvailableChats')
+          .doc(widget.userID)
+          .collection('chats')
+          .doc(widget.chatID);
 
-        await chatDocRef.update({'hasNewMessage': hasNewMessage});
-      } else {
-        // Initialize 'hasNewMessage' for the current user
-        await chatDocRef.update({
-          'hasNewMessage': {
-            currentUserId: false, // Current user is not new
-          },
-        });
-      }
-    }
+      final docSnapshot = await chatDocRef.get();
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data();
+        if (data != null) {
+          Map<String, dynamic> hasNewMessage =
+              Map<String, dynamic>.from(data['hasNewMessage'] ?? {});
 
-    // Update message status to "delivered"
-    final messageDoc = await _firestore
-        .collection('AvailableChats')
-        .doc(widget.userID)
-        .collection('chats')
-        .doc(widget.chatID)
-        .collection('messages')
-        .where('text', isEqualTo: _controller.text)
-        .where('name', isEqualTo: currentUserName)
-        .orderBy('createdAt', descending: true)
-        .limit(1)
-        .get();
+          hasNewMessage[currentUserId] = false;
+          hasNewMessage.forEach((key, _) {
+            if (key != currentUserId) hasNewMessage[key] = true;
+          });
 
-    if (messageDoc.docs.isNotEmpty) {
-      final messageId = messageDoc.docs.first.id;
-      await _updateMessageStatus(messageId, 'delivered');
-    }
-  }
-
-  // Update message status
-  Future<void> _updateMessageStatus(String messageId, String status) async {
-    await _firestore
-        .collection('AvailableChats')
-        .doc(widget.userID)
-        .collection('chats')
-        .doc(widget.chatID)
-        .collection('messages')
-        .doc(messageId)
-        .update({'status': status});
-  }
-
-  // Mark messages as read for the current user
-  Future<void> _markMessagesAsRead() async {
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-
-    final chatDocRef = _firestore
-        .collection('AvailableChats')
-        .doc(widget.userID)
-        .collection('chats')
-        .doc(widget.chatID);
-
-    final docSnapshot = await chatDocRef.get();
-
-    if (docSnapshot.exists) {
-      final data = docSnapshot.data();
-      if (data != null && data.containsKey('hasNewMessage')) {
-        Map<String, dynamic> hasNewMessage =
-            Map<String, dynamic>.from(data['hasNewMessage'] ?? {});
-
-        // Mark the current user as having read the messages
-        if (hasNewMessage.containsKey(currentUserId)) {
-          hasNewMessage[widget.userID] = false;
+          await chatDocRef.update({'hasNewMessage': hasNewMessage});
         }
-
-        await chatDocRef.update({'hasNewMessage': hasNewMessage});
       }
+    } catch (e) {
+      debugPrint('Error sending message: $e');
+    }
+  }
+
+  Future<void> _markMessagesAsRead() async {
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+      final chatDocRef = _firestore
+          .collection('AvailableChats')
+          .doc(widget.userID)
+          .collection('chats')
+          .doc(widget.chatID);
+
+      final docSnapshot = await chatDocRef.get();
+
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data();
+        if (data != null && currentUserId != null) {
+          Map<String, dynamic> hasNewMessage =
+              Map<String, dynamic>.from(data['hasNewMessage'] ?? {});
+
+          hasNewMessage[currentUserId] = false;
+
+          await chatDocRef.update({'hasNewMessage': hasNewMessage});
+        }
+      }
+    } catch (e) {
+      debugPrint('Error marking messages as read: $e');
     }
   }
 
@@ -221,12 +196,29 @@ class ChatScreenState extends State<ChatScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
+                // If there are no messages in the chat
+                if (chatSnapshot.data == null ||
+                    chatSnapshot.data!.docs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No messages yet.',
+                      style: TextStyle(
+                        fontSize: 18.0,
+                        color: widget.isDarkMode ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  );
+                }
+
                 final chatDocs = chatSnapshot.data!.docs;
-                // After messages are updated, scroll to the bottom
+
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (_scrollController.hasClients) {
-                    _scrollController
-                        .jumpTo(_scrollController.position.maxScrollExtent);
+                    _scrollController.animateTo(
+                      _scrollController.position.maxScrollExtent,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
                   }
                 });
 
@@ -275,7 +267,7 @@ class ChatScreenState extends State<ChatScreen> {
                               : CrossAxisAlignment.start,
                           children: <Widget>[
                             Text(
-                              chatDocs[index]['name'],
+                              chatDocs[index]['name'] ?? 'Unknown',
                               style: TextStyle(
                                 color: widget.isDarkMode
                                     ? Colors.white70
@@ -284,7 +276,7 @@ class ChatScreenState extends State<ChatScreen> {
                               ),
                             ),
                             Text(
-                              chatDocs[index]['text'],
+                              chatDocs[index]['text'] ?? '',
                               style: TextStyle(
                                 color: widget.isDarkMode
                                     ? Colors.white
@@ -294,7 +286,9 @@ class ChatScreenState extends State<ChatScreen> {
                             ),
                             const SizedBox(height: 4.0),
                             Text(
-                              'Sent at: ${DateFormat.yMd().add_jm().format(chatDocs[index]['createdAt'].toDate())}',
+                              chatDocs[index]['createdAt'] != null
+                                  ? 'Sent at: ${DateFormat.yMd().add_jm().format(chatDocs[index]['createdAt'].toDate())}'
+                                  : 'Sent at: Unknown time',
                               style: TextStyle(
                                 color: widget.isDarkMode
                                     ? Colors.white60
@@ -311,7 +305,6 @@ class ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          // Message input and send button
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -330,9 +323,19 @@ class ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                 ),
-                IconButton(
-                  onPressed: _sendMessage,
-                  icon: Icon(Icons.send),
+                ValueListenableBuilder<bool>(
+                  valueListenable: _isSendButtonEnabled,
+                  builder: (context, isEnabled, child) {
+                    return IconButton(
+                      onPressed: isEnabled ? _sendMessage : null,
+                      icon: Icon(
+                        Icons.send,
+                        color: isEnabled
+                            ? (widget.isDarkMode ? Colors.white : Colors.black)
+                            : Colors.grey,
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
