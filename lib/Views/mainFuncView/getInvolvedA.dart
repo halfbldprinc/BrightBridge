@@ -66,7 +66,7 @@ class MarblePageState extends State<MarblePage>
               userid: values[0],
               chatid: values[1],
               title: values[2],
-              radius: Random().nextDouble() * 30 + 20,
+              radius: Random().nextDouble() * 30 + 40,
               xPos: Random().nextDouble() * (screenWidth - 100) + 50,
               yPos: Random().nextDouble() * (screenHeight - 100) + 50,
               dx: Random().nextDouble() * 2 - 1,

@@ -47,6 +47,7 @@ class MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(
         primarySwatch: Colors.blue,
@@ -77,7 +78,6 @@ class MyAppState extends State<MyApp> {
         iconTheme: IconThemeData(color: Colors.white), // Dark mode icon color
         fontFamily: 'Roboto',
       ),
-      debugShowCheckedModeBanner: false,
       title: 'BrightBridge ',
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
