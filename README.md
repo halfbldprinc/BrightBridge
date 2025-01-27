@@ -1,4 +1,4 @@
-### **BB**  
+
 ### **BrightBridge**  
 *BrightBridge* is a mobile application that connects medical students and senior professionals to foster collaborative learning and bridge the gap between theoretical knowledge and practical experience. The app is also aligned with the mission of the **Sustainable Development Goals (SDG)**, specifically:  
 - **Goal 3: Good Health and Well-Being**  
